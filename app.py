@@ -89,59 +89,24 @@ logo_html = f'<img src="data:image/png;base64,{logo_base64}" style="height:30px;
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    
     html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; background-color: #f8fafc; }}
-    
-    .main-header {{ 
-        background-color: #1e2d5b; color: white; display: flex; align-items: center; justify-content: center; 
-        position: fixed; top: 0; left: 0; width: 100%; z-index: 1001; height: 45px; 
-        font-weight: 700; font-size: 14px; /* Sedikit dikecilkan untuk mobile */
-    }}
-    
+    .main-header {{ background-color: #1e2d5b; color: white; display: flex; align-items: center; justify-content: center; position: fixed;
+        top: 0; left: 0; width: 100%; z-index: 1001; height: 45px; font-weight: 700; font-size: 16px; }}
     .block-container {{ padding-top: 55px !important; padding-bottom: 20px !important; }}
     [data-testid="stHeader"] {{ display: none; }}
     
-    /* --- PERBAIKAN KOLOM MOBILE (AGAR TIDAK MENURUN) --- */
-    [data-testid="column"] {{
-        flex: 1 1 calc(50% - 1rem) !important;
-        min-width: 45% !important; /* Memaksa 2 kolom per baris di HP */
-    }}
-
     /* STYLE UNTUK KARTU METRIK */
-    .metric-card {{ 
-        background-color: white; 
-        padding: 10px; /* Dikurangi sedikit agar hemat ruang */
-        border-radius: 10px; 
-        border: 1px solid #e2e8f0; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        margin-bottom: 10px;
-        min-height: 70px; /* Menyamakan tinggi kartu */
-    }}
-    
-    .metric-label {{ 
-        color: #64748b; 
-        font-size: 9px; /* Ukuran teks label dioptimalkan untuk layar kecil */
-        font-weight: 600; 
-        text-transform: uppercase; 
-        line-height: 1.2;
-    }}
-    
-    .metric-value {{ 
-        color: #1e293b; 
-        font-size: 16px; /* Ukuran angka disesuaikan agar tidak overflow */
-        font-weight: 700; 
-        margin-top: 4px;
-    }}
+    .metric-card {{ background-color: white; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }}
+    .metric-label {{ color: #64748b; font-size: 10px; font-weight: 600; text-transform: uppercase; }}
+    .metric-value {{ color: #1e293b; font-size: 19px; font-weight: 700; }}
     
     /* WARNA INDIKATOR KIRI */
     .metric-card.green {{ border-left: 5px solid #22c55e; }}
     .metric-card.yellow {{ border-left: 5px solid #eab308; }}
     .metric-card.blue {{ border-left: 5px solid #3b82f6; }}
     .metric-card.red {{ border-left: 5px solid #ef4444; }}
-    .metric-card.orange {{ border-left: 5px solid #f97316; }}
+    .metric-card.orange {{ border-left: 5px solid #f97316; }} /* <-- Tambahkan di sini, di dalam tanda petik */
     
-    /* Menghilangkan margin berlebih pada elemen Streamlit */
-    [data-testid="stMarkdownContainer"] p {{ margin-bottom: 0px; }}
     
     </style>
     <div class="main-header">{logo_html} PT. REZEKI KENCANA - PRODUCTION SYSTEM</div>
@@ -176,10 +141,9 @@ if not df_dash.empty:
 
 # --- TAB 1: DASHBOARD ---
     with tabs[0]:
-        # Baris 1: Metrik (Semua dalam bentuk kartu metrik yang seragam)
-        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+        # Baris 1: Metrik (Menggunakan dua set kolom agar di HP tetap 2 kolom x 2 baris)
         
-        # Perhitungan data tetap diperlukan untuk menampilkan angka persen
+        # Perhitungan data
         bulan_aktif, tahun_aktif = sd.month, sd.year
         prod_mtd = df_dash[(df_dash['Tanggal'].dt.month == bulan_aktif) & (df_dash['Tanggal'].dt.year == tahun_aktif)]['Aktual Produksi'].sum()
         mask_bb = (df_bb['Tanggal'].dt.month == bulan_aktif) & (df_bb['Tanggal'].dt.year == tahun_aktif)
@@ -187,30 +151,32 @@ if not df_dash.empty:
         total_budget = pd.to_numeric(df_bb.loc[mask_bb, [c for c in df_bb.columns if 'budget' in c.lower()][0]], errors='coerce').sum() if mask_bb.any() else 0
         total_bbc = pd.to_numeric(df_bb.loc[mask_bb, [c for c in df_bb.columns if 'bbc' in c.lower()][0]], errors='coerce').sum() if mask_bb.any() else 0
 
-        with m_col1:
-            # Metrik 1: Total Produksi
+        # --- SUB-BARIS ATAS (Kolom 1 & 2) ---
+        m_row1_col1, m_row1_col2 = st.columns(2)
+        
+        with m_row1_col1:
             val_prod = f_dash["Aktual Produksi"].sum()
             st.markdown(f'<div class="metric-card green"><div class="metric-label">Total Produksi</div><div class="metric-value">{val_prod:,.0f} Mt</div></div>', unsafe_allow_html=True)
             
-            # Kartu tambahan pengganti Gauge (Capaian Budget)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True) # Spacer kecil
             pct_budget = (prod_mtd/total_budget*100 if total_budget>0 else 0)
             st.markdown(f'<div class="metric-card green"><div class="metric-label">Capaian Budget (MTD)</div><div class="metric-value">{pct_budget:,.1f}%</div></div>', unsafe_allow_html=True)
 
-        with m_col2:
-            # Metrik 2: Total AKP
+        with m_row1_col2:
             val_akp = f_dash["AKP"].sum()
             st.markdown(f'<div class="metric-card yellow"><div class="metric-label">Total AKP</div><div class="metric-value">{val_akp:,.1f} Mt</div></div>', unsafe_allow_html=True)
             
-            # Kartu tambahan pengganti Gauge (Capaian BBC)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True) # Spacer kecil
             pct_bbc = (prod_mtd/total_bbc*100 if total_bbc>0 else 0)
             st.markdown(f'<div class="metric-card red"><div class="metric-label">Capaian BBC (MTD)</div><div class="metric-value">{pct_bbc:,.1f}%</div></div>', unsafe_allow_html=True)
-        with m_col3:
+
+        st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True) # Jarak antar baris kartu
+
+        # --- SUB-BARIS BAWAH (Kolom 3 & 4) ---
+        m_row2_col1, m_row2_col2 = st.columns(2)
+
+        with m_row2_col1:
             avg_m = f_mentah["ESTATE %"].mean() if not f_mentah.empty else 0
-            
-            # --- LOGIKA THRESHOLD MENTAH ---
-            # Hijau: < 2%, Orange: 2-5%, Merah: > 5%
             m_status = "green" if avg_m < 0 else ("orange" if avg_m <= 0.2 else "red")
             m_icon = "✅" if avg_m < 0.21 else ("⚠️" if avg_m <= 0.21 else "🚨")
             
@@ -221,15 +187,12 @@ if not df_dash.empty:
                 </div>
             ''', unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
             val_ch = f_dash[[c for c in f_dash.columns if 'curah' in c.lower()][0]].sum() if any('curah' in c.lower() for c in f_dash.columns) else 0
             st.markdown(f'<div class="metric-card blue"><div class="metric-label">Total Curah Hujan</div><div class="metric-value">{val_ch:,.0f} mm</div></div>', unsafe_allow_html=True)
 
-        with m_col4:
+        with m_row2_col2:
             avg_mk = f_mengkal["ESTATE %"].mean() if not f_mengkal.empty else 0
-            
-            # --- LOGIKA THRESHOLD MENGKAL ---
-            # Hijau: < 5%, Orange: 5-10%, Merah: > 10%
             mk_status = "green" if avg_mk < 2 else ("orange" if avg_mk <= 5 else "red")
             mk_icon = "✅" if avg_mk < 5.1 else ("⚠️" if avg_mk <= 5.1 else "🚨")
 
@@ -240,7 +203,7 @@ if not df_dash.empty:
                 </div>
             ''', unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
             val_tk = f_dash[[c for c in f_dash.columns if 'tk' in c.lower() and 'panen' in c.lower()][0]].mean() if any('tk' in c.lower() for c in f_dash.columns) else 0
             st.markdown(f'<div class="metric-card yellow"><div class="metric-label">Avg TK Panen</div><div class="metric-value">{val_tk:,.0f} Org</div></div>', unsafe_allow_html=True)
 
