@@ -89,23 +89,59 @@ logo_html = f'<img src="data:image/png;base64,{logo_base64}" style="height:30px;
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
     html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; background-color: #f8fafc; }}
-    .main-header {{ background-color: #1e2d5b; color: white; display: flex; align-items: center; justify-content: center; position: fixed;
-        top: 0; left: 0; width: 100%; z-index: 1001; height: 45px; font-weight: 700; font-size: 16px; }}
+    
+    .main-header {{ 
+        background-color: #1e2d5b; color: white; display: flex; align-items: center; justify-content: center; 
+        position: fixed; top: 0; left: 0; width: 100%; z-index: 1001; height: 45px; 
+        font-weight: 700; font-size: 14px; /* Sedikit dikecilkan untuk mobile */
+    }}
+    
     .block-container {{ padding-top: 55px !important; padding-bottom: 20px !important; }}
     [data-testid="stHeader"] {{ display: none; }}
     
+    /* --- PERBAIKAN KOLOM MOBILE (AGAR TIDAK MENURUN) --- */
+    [data-testid="column"] {{
+        flex: 1 1 calc(50% - 1rem) !important;
+        min-width: 45% !important; /* Memaksa 2 kolom per baris di HP */
+    }}
+
     /* STYLE UNTUK KARTU METRIK */
-    .metric-card {{ background-color: white; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }}
-    .metric-label {{ color: #64748b; font-size: 10px; font-weight: 600; text-transform: uppercase; }}
-    .metric-value {{ color: #1e293b; font-size: 19px; font-weight: 700; }}
+    .metric-card {{ 
+        background-color: white; 
+        padding: 10px; /* Dikurangi sedikit agar hemat ruang */
+        border-radius: 10px; 
+        border: 1px solid #e2e8f0; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        margin-bottom: 10px;
+        min-height: 70px; /* Menyamakan tinggi kartu */
+    }}
+    
+    .metric-label {{ 
+        color: #64748b; 
+        font-size: 9px; /* Ukuran teks label dioptimalkan untuk layar kecil */
+        font-weight: 600; 
+        text-transform: uppercase; 
+        line-height: 1.2;
+    }}
+    
+    .metric-value {{ 
+        color: #1e293b; 
+        font-size: 16px; /* Ukuran angka disesuaikan agar tidak overflow */
+        font-weight: 700; 
+        margin-top: 4px;
+    }}
     
     /* WARNA INDIKATOR KIRI */
     .metric-card.green {{ border-left: 5px solid #22c55e; }}
     .metric-card.yellow {{ border-left: 5px solid #eab308; }}
     .metric-card.blue {{ border-left: 5px solid #3b82f6; }}
     .metric-card.red {{ border-left: 5px solid #ef4444; }}
-    .metric-card.orange {{ border-left: 5px solid #f97316; }} /* <-- Tambahkan di sini, di dalam tanda petik */
+    .metric-card.orange {{ border-left: 5px solid #f97316; }}
+    
+    /* Menghilangkan margin berlebih pada elemen Streamlit */
+    [data-testid="stMarkdownContainer"] p {{ margin-bottom: 0px; }}
     
     </style>
     <div class="main-header">{logo_html} PT. REZEKI KENCANA - PRODUCTION SYSTEM</div>
