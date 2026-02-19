@@ -141,71 +141,86 @@ if not df_dash.empty:
 
 # --- TAB 1: DASHBOARD ---
     with tabs[0]:
-        # Baris 1: Metrik (Menggunakan dua set kolom agar di HP tetap 2 kolom x 2 baris)
-        
         # Perhitungan data
         bulan_aktif, tahun_aktif = sd.month, sd.year
         prod_mtd = df_dash[(df_dash['Tanggal'].dt.month == bulan_aktif) & (df_dash['Tanggal'].dt.year == tahun_aktif)]['Aktual Produksi'].sum()
         mask_bb = (df_bb['Tanggal'].dt.month == bulan_aktif) & (df_bb['Tanggal'].dt.year == tahun_aktif)
-        
         total_budget = pd.to_numeric(df_bb.loc[mask_bb, [c for c in df_bb.columns if 'budget' in c.lower()][0]], errors='coerce').sum() if mask_bb.any() else 0
         total_bbc = pd.to_numeric(df_bb.loc[mask_bb, [c for c in df_bb.columns if 'bbc' in c.lower()][0]], errors='coerce').sum() if mask_bb.any() else 0
 
-        # --- SUB-BARIS ATAS (Kolom 1 & 2) ---
-        m_row1_col1, m_row1_col2 = st.columns(2)
+        # --- BARIS 1 & 2 DENGAN FLEXBOX (AGAR TETAP KIRI-KANAN DI HP) ---
         
-        with m_row1_col1:
-            val_prod = f_dash["Aktual Produksi"].sum()
-            st.markdown(f'<div class="metric-card green"><div class="metric-label">Total Produksi</div><div class="metric-value">{val_prod:,.0f} Mt</div></div>', unsafe_allow_html=True)
-            
-            st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True) # Spacer kecil
-            pct_budget = (prod_mtd/total_budget*100 if total_budget>0 else 0)
-            st.markdown(f'<div class="metric-card green"><div class="metric-label">Capaian Budget (MTD)</div><div class="metric-value">{pct_budget:,.1f}%</div></div>', unsafe_allow_html=True)
+        # Variabel Data
+        val_prod = f_dash["Aktual Produksi"].sum()
+        val_akp = f_dash["AKP"].sum()
+        pct_budget = (prod_mtd/total_budget*100 if total_budget>0 else 0)
+        pct_bbc = (prod_mtd/total_bbc*100 if total_bbc>0 else 0)
+        avg_m = f_mentah["ESTATE %"].mean() if not f_mentah.empty else 0
+        avg_mk = f_mengkal["ESTATE %"].mean() if not f_mengkal.empty else 0
+        val_ch = f_dash[[c for c in f_dash.columns if 'curah' in c.lower()][0]].sum() if any('curah' in c.lower() for c in f_dash.columns) else 0
+        val_tk = f_dash[[c for c in f_dash.columns if 'tk' in c.lower() and 'panen' in c.lower()][0]].mean() if any('tk' in c.lower() for c in f_dash.columns) else 0
 
-        with m_row1_col2:
-            val_akp = f_dash["AKP"].sum()
-            st.markdown(f'<div class="metric-card yellow"><div class="metric-label">Total AKP</div><div class="metric-value">{val_akp:,.1f} Mt</div></div>', unsafe_allow_html=True)
-            
-            st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True) # Spacer kecil
-            pct_bbc = (prod_mtd/total_bbc*100 if total_bbc>0 else 0)
-            st.markdown(f'<div class="metric-card red"><div class="metric-label">Capaian BBC (MTD)</div><div class="metric-value">{pct_bbc:,.1f}%</div></div>', unsafe_allow_html=True)
+        # Logika Status Warna
+        m_status = "green" if avg_m < 0 else ("orange" if avg_m <= 0.2 else "red")
+        mk_status = "green" if avg_mk < 2 else ("orange" if avg_mk <= 5 else "red")
 
-        st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True) # Jarak antar baris kartu
+        # CSS Flexbox Container
+        st.markdown("""
+            <style>
+                .flex-container {
+                    display: flex;
+                    flex-wrap: nowrap; /* Memaksa tetap satu baris */
+                    gap: 10px;
+                    margin-bottom: 10px;
+                    width: 100%;
+                }
+                .flex-item {
+                    flex: 1; /* Membagi lebar rata */
+                    min-width: 0; /* Menghindari overflow */
+                }
+                /* Kecilkan font sedikit khusus untuk HP agar tidak terpotong */
+                @media (max-width: 640px) {
+                    .metric-value { font-size: 14px !important; }
+                    .metric-label { font-size: 8px !important; }
+                }
+            </style>
+        """, unsafe_allow_html=True)
 
-        # --- SUB-BARIS BAWAH (Kolom 3 & 4) ---
-        m_row2_col1, m_row2_col2 = st.columns(2)
-
-        with m_row2_col1:
-            avg_m = f_mentah["ESTATE %"].mean() if not f_mentah.empty else 0
-            m_status = "green" if avg_m < 0 else ("orange" if avg_m <= 0.2 else "red")
-            m_icon = "✅" if avg_m < 0.21 else ("⚠️" if avg_m <= 0.21 else "🚨")
-            
-            st.markdown(f'''
-                <div class="metric-card {m_status}">
-                    <div class="metric-label">Rerata Mentah {m_icon}</div>
-                    <div class="metric-value">{avg_m:,.2f}%</div>
+        # RENDER BARIS ATAS
+        st.markdown(f"""
+            <div class="flex-container">
+                <div class="flex-item">
+                    <div class="metric-card green"><div class="metric-label">Produksi</div><div class="metric-value">{val_prod:,.0f}m</div></div>
                 </div>
-            ''', unsafe_allow_html=True)
-            
-            st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
-            val_ch = f_dash[[c for c in f_dash.columns if 'curah' in c.lower()][0]].sum() if any('curah' in c.lower() for c in f_dash.columns) else 0
-            st.markdown(f'<div class="metric-card blue"><div class="metric-label">Total Curah Hujan</div><div class="metric-value">{val_ch:,.0f} mm</div></div>', unsafe_allow_html=True)
-
-        with m_row2_col2:
-            avg_mk = f_mengkal["ESTATE %"].mean() if not f_mengkal.empty else 0
-            mk_status = "green" if avg_mk < 2 else ("orange" if avg_mk <= 5 else "red")
-            mk_icon = "✅" if avg_mk < 5.1 else ("⚠️" if avg_mk <= 5.1 else "🚨")
-
-            st.markdown(f'''
-                <div class="metric-card {mk_status}">
-                    <div class="metric-label">Rerata Mengkal {mk_icon}</div>
-                    <div class="metric-value">{avg_mk:,.2f}%</div>
+                <div class="flex-item">
+                    <div class="metric-card yellow"><div class="metric-label">Total AKP</div><div class="metric-value">{val_akp:,.1f}m</div></div>
                 </div>
-            ''', unsafe_allow_html=True)
-            
-            st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
-            val_tk = f_dash[[c for c in f_dash.columns if 'tk' in c.lower() and 'panen' in c.lower()][0]].mean() if any('tk' in c.lower() for c in f_dash.columns) else 0
-            st.markdown(f'<div class="metric-card yellow"><div class="metric-label">Avg TK Panen</div><div class="metric-value">{val_tk:,.0f} Org</div></div>', unsafe_allow_html=True)
+                <div class="flex-item">
+                    <div class="metric-card green"><div class="metric-label">Budget</div><div class="metric-value">{pct_budget:,.1f}%</div></div>
+                </div>
+                <div class="flex-item">
+                    <div class="metric-card red"><div class="metric-label">BBC</div><div class="metric-value">{pct_bbc:,.1f}%</div></div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # RENDER BARIS BAWAH
+        st.markdown(f"""
+            <div class="flex-container">
+                <div class="flex-item">
+                    <div class="metric-card {m_status}"><div class="metric-label">Mentah</div><div class="metric-value">{avg_m:,.1f}%</div></div>
+                </div>
+                <div class="flex-item">
+                    <div class="metric-card {mk_status}"><div class="metric-label">Mengkal</div><div class="metric-value">{avg_mk:,.1f}%</div></div>
+                </div>
+                <div class="flex-item">
+                    <div class="metric-card blue"><div class="metric-label">C. Hujan</div><div class="metric-value">{val_ch:,.0f}mm</div></div>
+                </div>
+                <div class="flex-item">
+                    <div class="metric-card yellow"><div class="metric-label">TK Panen</div><div class="metric-value">{val_tk:,.0f}</div></div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
         st.divider()
 
