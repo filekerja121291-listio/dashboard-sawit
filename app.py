@@ -103,7 +103,7 @@ st.markdown(f"""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; background-color: #f8fafc; }}
     .main-header {{ background-color: #3366FF; color: white; display: flex; align-items: center; justify-content: center; position: fixed;
-        top: 0; left: 0; width: 100%; z-index: 1001; height: 65px; font-weight: 700; font-size: 24px; }}
+        top: 0; left: 0; width: 100%; z-index: 1001; height: 45px; font-weight: 700; font-size: 16px; }}
     .block-container {{ padding-top: 65px !important; padding-bottom: 20px !important; }}
     [data-testid="stHeader"] {{ display: none; }}
     
