@@ -9,6 +9,7 @@ import os
 st.set_page_config(page_title="PT. REZEKI KENCANA", layout="wide")
 
 file_path = "master_data_produksi.xlsx"
+file_blok_path = "data_produksi.xlsx" # <-- Tambahkan ini
 
 # --- FUNGSI UTILITAS ---
 def get_base64_logo(path):
@@ -43,7 +44,18 @@ def load_data(path):
         return d_dash, d_prod, d_bb, d_mentah, d_mengkal
     except:
         return [pd.DataFrame()]*5
-
+@st.cache_data(ttl=0)
+def load_data_blok(path):
+    try:
+        # Membaca 5 sheet baru
+        d_tbs = pd.read_excel(path, sheet_name="tbs")
+        d_ton = pd.read_excel(path, sheet_name="tonase")
+        d_yph = pd.read_excel(path, sheet_name="yph")
+        d_brd = pd.read_excel(path, sheet_name="brondol")
+        d_bjr = pd.read_excel(path, sheet_name="bjr")
+        return d_tbs, d_ton, d_yph, d_brd, d_bjr
+    except:
+        return [pd.DataFrame()]*5
 def add_summary_row(df, label="TOTAL", current_afd_cols=[]):
     if df.empty: return df
     summary_data = {'Tgl': label}
@@ -114,6 +126,7 @@ st.markdown(f"""
 
 # --- LOAD DATA ---
 df_dash, df_prod, df_bb, df_mentah, df_mengkal = load_data(file_path)
+df_tbs, df_ton, df_yph, df_brd, df_bjr = load_data_blok(file_blok_path) # <-- Tambahkan ini
 
 if not df_dash.empty:
     # Filter Bar
@@ -137,7 +150,7 @@ if not df_dash.empty:
     f_mengkal = filter_and_format(df_mengkal, sd, ed)
     f_prod = filter_and_format(df_prod, sd, ed)
 
-    tabs = st.tabs(["Dashboard Utama", "Distribusi Afdeling", "Grading Mentah", "Grading Mengkal"])
+    tabs = st.tabs(["Dashboard Utama", "Distribusi Afdeling", "Grading Mentah", "Grading Mengkal", "Summary Blok"])
 
 # --- TAB 1: DASHBOARD ---
     with tabs[0]:
@@ -283,7 +296,7 @@ if not df_dash.empty:
             st.plotly_chart(fig_mk, use_container_width=True, config={'displayModeBar': False})
     # --- TAB 2: DISTRIBUSI AFDELING ---
     with tabs[1]:
-        afd_cols = [c for c in f_prod.columns if 'Afdeling' in c and '(Ton)' in c]
+        afd_cols = [c for c in f_prod.columns if 'Afd' in c and '(Ton)' in c]
         if afd_cols:
             col_g, col_t = st.columns([1, 1.2])
             with col_g:
@@ -302,7 +315,69 @@ if not df_dash.empty:
             f_dict = {c: "{:.2f}%" for c in df_sum.columns if '%' in c}
             f_dict.update({c: "{:,.0f}" for c in df_sum.columns if '(JJG)' in c})
             st.dataframe(df_sum.style.apply(style_total_row, axis=1).format(f_dict, na_rep=""), use_container_width=True, height=550, hide_index=True)
+# --- TAB 5: SUMMARY BLOK (FILE BARU) ---
+with tabs[4]:
+    st.markdown("### 📋 Summary Produksi Per Blok")
+    
+    # Pilihan Sheet
+    sub_tab = st.radio("Pilih Data:", ["TBS", "Tonase", "YPH", "Brondol", "BJR"], horizontal=True)
+    
+    # Mapping Data
+    map_data = {
+        "TBS": df_tbs, "Tonase": df_ton, "YPH": df_yph, 
+        "Brondol": df_brd, "BJR": df_bjr
+    }
+    
+    # Ambil dataframe asli dan buat salinan untuk tampilan (agar data asli tidak rusak)
+    raw_df = map_data[sub_tab]
+    
+    if not raw_df.empty:
+        # --- PROSES FORMAT TANGGAL ---
+        active_df = raw_df.copy()
+        
+        # Fungsi untuk mengubah kolom tanggal menjadi 'MMM YYYY' (misal: Jan 2024)
+        new_columns = {}
+        for col in active_df.columns:
+            try:
+                # Coba ubah kolom menjadi datetime, jika berhasil format ke 'MMM YYYY'
+                dt_col = pd.to_datetime(col)
+                new_columns[col] = dt_col.strftime('%b %Y')
+            except:
+                # Jika bukan tanggal (misal kolom 'Blok'), biarkan apa adanya
+                new_columns[col] = col
+        
+        active_df = active_df.rename(columns=new_columns)
+        # ----------------------------
 
+        # Layout: Tabel di kiri, Grafik rata-rata di kanan
+        c_bl1, c_bl2 = st.columns([1.5, 1])
+        
+        with c_bl1:
+            st.markdown(f"**Tabel Data {sub_tab}**")
+            st.dataframe(active_df, use_container_width=True, height=500, hide_index=True)
+        
+        with c_bl2:
+            st.markdown(f"**Grafik Perbandingan {sub_tab}**")
+            
+            # Cari kolom numerik pada dataframe yang sudah diformat
+            numeric_cols = active_df.select_dtypes(include=['number']).columns
+            
+            if not numeric_cols.empty:
+                # Ambil kolom terakhir (bulan terbaru)
+                latest_col = numeric_cols[-1]
+                top_10 = active_df.nlargest(10, latest_col)
+                
+                fig_blok = px.bar(
+                    top_10, 
+                    x=active_df.columns[0], # Kolom nama blok
+                    y=latest_col,
+                    title=f"Top 10 Blok ({latest_col})",
+                    color_discrete_sequence=['#f97316']
+                )
+                fig_blok.update_layout(height=450, margin=dict(l=0,r=0,t=40,b=0))
+                st.plotly_chart(fig_blok, use_container_width=True)
+    else:
+        st.warning("Data tidak ditemukan atau file data_produksi.xlsx belum siap.")
 # Auto-refresh
 if os.path.exists(file_path):
     mtime = os.path.getmtime(file_path)
