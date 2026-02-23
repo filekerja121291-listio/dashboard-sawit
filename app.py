@@ -102,9 +102,9 @@ st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; background-color: #f8fafc; }}
-    .main-header {{ background-color: #1e2d5b; color: white; display: flex; align-items: center; justify-content: center; position: fixed;
-        top: 0; left: 0; width: 100%; z-index: 1001; height: 45px; font-weight: 700; font-size: 16px; }}
-    .block-container {{ padding-top: 55px !important; padding-bottom: 20px !important; }}
+    .main-header {{ background-color: #3366FF; color: white; display: flex; align-items: center; justify-content: center; position: fixed;
+        top: 0; left: 0; width: 100%; z-index: 1001; height: 65px; font-weight: 700; font-size: 24px; }}
+    .block-container {{ padding-top: 65px !important; padding-bottom: 20px !important; }}
     [data-testid="stHeader"] {{ display: none; }}
     
     /* STYLE UNTUK KARTU METRIK */
@@ -302,7 +302,7 @@ if not df_dash.empty:
             with col_g:
                 df_sum_afd = f_prod[afd_cols].sum().reset_index()
                 df_sum_afd.columns = ['Afd', 'Ton']
-                st.plotly_chart(px.bar(df_sum_afd, x='Afd', y='Ton', text_auto='.1f', color_discrete_sequence=['#1e2d5b'], title="Total Produksi per Afdeling"), use_container_width=True)
+                st.plotly_chart(px.bar(df_sum_afd, x='Afd', y='Ton', text_auto='.1f', color_discrete_sequence=['#00602B'], title="Total Produksi per Afdeling"), use_container_width=True)
             with col_t:
                 df_res = add_summary_row(f_prod, "TOTAL", afd_cols + ['TOTAL'])
                 st.dataframe(df_res.style.apply(style_total_row, axis=1).format(precision=2), use_container_width=True, hide_index=True, height=500)
@@ -319,65 +319,96 @@ if not df_dash.empty:
 with tabs[4]:
     st.markdown("### 📋 Summary Produksi Per Blok")
     
-    # Pilihan Sheet
-    sub_tab = st.radio("Pilih Data:", ["TBS", "Tonase", "YPH", "Brondol", "BJR"], horizontal=True)
+    # Baris Filter
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        sub_tab = st.radio("Pilih Data:", ["TBS", "Tonase", "YPH", "Brondol", "BJR"], horizontal=True)
     
-    # Mapping Data
-    map_data = {
-        "TBS": df_tbs, "Tonase": df_ton, "YPH": df_yph, 
-        "Brondol": df_brd, "BJR": df_bjr
-    }
-    
-    # Ambil dataframe asli dan buat salinan untuk tampilan (agar data asli tidak rusak)
+    map_data = {"TBS": df_tbs, "Tonase": df_ton, "YPH": df_yph, "Brondol": df_brd, "BJR": df_bjr}
     raw_df = map_data[sub_tab]
     
     if not raw_df.empty:
-        # --- PROSES FORMAT TANGGAL ---
-        active_df = raw_df.copy()
-        
-        # Fungsi untuk mengubah kolom tanggal menjadi 'MMM YYYY' (misal: Jan 2024)
-        new_columns = {}
-        for col in active_df.columns:
+        # --- 1. IDENTIFIKASI KOLOM TANGGAL ---
+        kolom_tanggal = []
+        for col in raw_df.columns:
             try:
-                # Coba ubah kolom menjadi datetime, jika berhasil format ke 'MMM YYYY'
-                dt_col = pd.to_datetime(col)
-                new_columns[col] = dt_col.strftime('%b %Y')
+                pd.to_datetime(col)
+                kolom_tanggal.append(col)
             except:
-                # Jika bukan tanggal (misal kolom 'Blok'), biarkan apa adanya
-                new_columns[col] = col
-        
-        active_df = active_df.rename(columns=new_columns)
-        # ----------------------------
+                continue
 
-        # Layout: Tabel di kiri, Grafik rata-rata di kanan
-        c_bl1, c_bl2 = st.columns([1.5, 1])
+        # --- 2. FORMAT TAMPILAN TABEL ---
+        active_df = raw_df.copy()
+        new_columns = {col: pd.to_datetime(col).strftime('%b %Y') for col in kolom_tanggal}
+        active_df = active_df.rename(columns=new_columns)
         
-        with c_bl1:
-            st.markdown(f"**Tabel Data {sub_tab}**")
-            st.dataframe(active_df, use_container_width=True, height=500, hide_index=True)
+        with c2:
+            nama_kolom_blok = active_df.columns[0] 
+            list_blok = active_df[nama_kolom_blok].unique()
+            selected_blok = st.multiselect("🔍 Filter Blok:", options=list_blok, placeholder="Pilih Blok...")
+
+        if selected_blok:
+            active_df = active_df[active_df[nama_kolom_blok].isin(selected_blok)]
+
+        st.markdown(f"**Tabel Data {sub_tab}**")
+        st.dataframe(active_df, use_container_width=True, height=350, hide_index=True)
+
+        # --- 3. BAGIAN GRAFIK TREND (HANYA DATA BERISI) ---
+        st.markdown("---")
         
-        with c_bl2:
-            st.markdown(f"**Grafik Perbandingan {sub_tab}**")
+        # Hitung Agregasi
+        total_tbs_all = df_tbs[kolom_tanggal].sum()
+        total_ton_all = df_ton[kolom_tanggal].sum()
+        
+        y_tonase = total_ton_all / 1000
+        luas_total = 1000 # Ganti dengan total luas afdeling Anda
+        y_yph = total_ton_all / luas_total
+        y_bjr = total_ton_all.div(total_tbs_all.replace(0, pd.NA))
+
+        # Buat List Data
+        trend_list = []
+        for col in kolom_tanggal:
+            trend_list.append({
+                "Bulan": pd.to_datetime(col).strftime('%b %Y'),
+                "Urutan": pd.to_datetime(col),
+                "Total TBS": total_tbs_all[col],
+                "Total Tonase (k)": y_tonase[col],
+                "Rata-rata YPH": y_yph[col],
+                "Rata-rata BJR": y_bjr[col]
+            })
+        
+        df_trend = pd.DataFrame(trend_list).sort_values("Urutan")
+
+        # Pilihan metrik
+        pilihan = st.selectbox("Pilih Visualisasi Trend:", 
+                              ["Total TBS", "Total Tonase (k)", "Rata-rata YPH", "Rata-rata BJR"])
+        
+        # --- FILTER: HANYA TAMPILKAN BULAN YANG BERISI DATA > 0 ---
+        df_plot = df_trend[df_trend[pilihan] > 0].copy()
+
+        if not df_plot.empty:
+            warna = {"Total TBS": "#1e2d5b", "Total Tonase (k)": "#3b5998", "Rata-rata YPH": "#f97316", "Rata-rata BJR": "#10b981"}
+
+            fig = px.line(df_plot, x="Bulan", y=pilihan, markers=True,
+                         title=f"Trend Bulanan {pilihan} (Hanya Bulan Berisi Data)",
+                         color_discrete_sequence=[warna[pilihan]],
+                         text=df_plot[pilihan].apply(lambda x: f'{x:,.2f}')) # Tambah label angka
             
-            # Cari kolom numerik pada dataframe yang sudah diformat
-            numeric_cols = active_df.select_dtypes(include=['number']).columns
-            
-            if not numeric_cols.empty:
-                # Ambil kolom terakhir (bulan terbaru)
-                latest_col = numeric_cols[-1]
-                top_10 = active_df.nlargest(10, latest_col)
-                
-                fig_blok = px.bar(
-                    top_10, 
-                    x=active_df.columns[0], # Kolom nama blok
-                    y=latest_col,
-                    title=f"Top 10 Blok ({latest_col})",
-                    color_discrete_sequence=['#f97316']
-                )
-                fig_blok.update_layout(height=450, margin=dict(l=0,r=0,t=40,b=0))
-                st.plotly_chart(fig_blok, use_container_width=True)
+            fig.update_traces(textposition="top center")
+            fig.update_layout(hovermode="x unified", height=450)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info(f"Tidak ada data untuk metrik {pilihan} yang lebih dari 0.")
+
     else:
-        st.warning("Data tidak ditemukan atau file data_produksi.xlsx belum siap.")
+        st.warning("Data tidak ditemukan.")
+        
+        # Opsional: Tampilkan ringkasan angka di bawah grafik
+        c_m1, c_m2, c_m3, c_m4 = st.columns(4)
+        c_m1.metric("Total TBS", f"{total_tbs.sum():,.0f}")
+        c_m2.metric("Total Ton (k)", f"{total_tonase.sum():,.1f}k")
+        c_m3.metric("Avg YPH", f"{avg_yph.mean():,.2f}")
+        c_m4.metric("Avg BJR", f"{avg_bjr.mean():,.2f}")
 # Auto-refresh
 if os.path.exists(file_path):
     mtime = os.path.getmtime(file_path)
